@@ -1,0 +1,15 @@
+{
+  "name": "watching-obs",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "^3.79.0",
+    "tsx": "^4.19.2",
+    "open": "^10.1.0"
+  },
+  "dependencies": {
+  },
+  "scripts": {
+    "get-token": "tsx scripts/get-refresh-token.ts"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watching-obs",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-18",
+
+  // workers.dev を使うだけなら routes は不要
+  // "routes": [
+  //   { "pattern": "hook.example.com/*", "custom_domain": true },
+  //   { "pattern": "subscribe.example.com/*", "custom_domain": true }
+  // ],
+
+  "triggers": {
+    // 6時間ごとに有効期限を見て再購読（必要なら調整）
+    "crons": ["0 */6 * * *"]
+  },
+
+  "kv_namespaces": [
+    // コード側に合わせて binding を OBS に統一
+    { "binding": "OBS", "id": "9ef5ee04ad9247fc94265a4178210588" }
+  ],
+
+  "observability": { "enabled": true }
+}
