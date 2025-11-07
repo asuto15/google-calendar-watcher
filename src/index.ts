@@ -72,7 +72,7 @@ async function gcalWatch(env: Env, accessToken: string, channelId: string) {
 type NormEvent = { id: string; summary: string; start: string; end: string };
 type Snapshot = { events: Record<string, NormEvent>; updatedAt: string };
 type ChannelOBS = { channelId: string; resourceId: string; expiration?: number };
-type ChangeKind = "updated" | "deleted";
+type ChangeKind = "created" | "updated" | "deleted";
 type ChangeEntry = {
   kind: ChangeKind;
   current: NormEvent;
@@ -141,7 +141,7 @@ async function applyIncremental(
   env: Env,
   accessToken: string,
   prev: Snapshot
-): Promise<{ next: Snapshot; updated: { old: NormEvent; now: NormEvent }[]; deleted: NormEvent[]; nextSyncToken?: string }> {
+): Promise<{ next: Snapshot; created: NormEvent[]; updated: { old: NormEvent; now: NormEvent }[]; deleted: NormEvent[]; nextSyncToken?: string }> {
   const params: Record<string, string> = {
     syncToken: (await env.OBS.get(SYNC_KEY(env.CALENDAR_ID))) ?? "",
     showDeleted: "true",
@@ -152,6 +152,7 @@ async function applyIncremental(
 
   const nowIso = new Date().toISOString();
   const nextEvents: Record<string, NormEvent> = { ...prev.events };
+  const created: NormEvent[] = [];
   const updated: { old: NormEvent; now: NormEvent }[] = [];
   const deleted: NormEvent[] = [];
   let pageToken: string | undefined;
@@ -183,9 +184,10 @@ async function applyIncremental(
           if (existed) delete nextEvents[n.id];
           continue;
         }
-        // 追加は通知しないが保持はする
+        // 追加も保持しつつ通知対象にする
         if (!existed) {
           nextEvents[n.id] = n;
+          created.push(n);
         } else {
           if (shallowChanged(existed, n)) {
             updated.push({ old: existed, now: n });
@@ -205,12 +207,20 @@ async function applyIncremental(
   }
 
   const next: Snapshot = { events: nextEvents, updatedAt: nowIso };
-  return { next, updated, deleted, nextSyncToken };
+  return { next, created, updated, deleted, nextSyncToken };
 }
 
 // ===== Discord =====
-function buildChangeEntries(updated: { old: NormEvent; now: NormEvent }[], deleted: NormEvent[]): ChangeEntry[] {
+function buildChangeEntries(created: NormEvent[], updated: { old: NormEvent; now: NormEvent }[], deleted: NormEvent[]): ChangeEntry[] {
   const rows: ChangeEntry[] = [];
+  for (const item of created) {
+    rows.push({
+      kind: "created",
+      current: item,
+      parsedStart: new Date(item.start),
+      parsedEnd: new Date(item.end),
+    });
+  }
   for (const item of updated) {
     rows.push({
       kind: "updated",
@@ -255,8 +265,9 @@ function formatTime(iso: string) {
 }
 
 function formatLine(entry: ChangeEntry) {
-  const emoji = entry.kind === "updated" ? "🔔" : "🗑️";
-  return `- ${emoji} ${entry.current.summary}\n  - ${formatDatetime(entry.current.start)} ~ ${formatTime(entry.current.end)}`;
+  const emoji = entry.kind === "created" ? "🆕" : entry.kind === "updated" ? "🔔" : "🗑️";
+  const label = entry.kind === "created" ? "追加" : entry.kind === "updated" ? "更新" : "削除";
+  return `- ${entry.current.summary} ${emoji} (${label})\n  - ${formatDatetime(entry.current.start)} ~ ${formatTime(entry.current.end)}`;
 }
 
 function formatChangeEntries(entries: ChangeEntry[]) {
@@ -269,8 +280,12 @@ function renderDiscordMessage(entries: ChangeEntry[]) {
     return { title: "Error: No entries to report", body: "" };
   }
   switch (entries[0].kind) {
+    case "created":
+      const titleCrt = "カワイ部屋の予約が追加されました";
+      const bodyCrt = formatChangeEntries(entries);
+      return { title: titleCrt, body: bodyCrt };
     case "updated":
-      const titleUpd = "カワイ部屋の予約が追加されました";
+      const titleUpd = "カワイ部屋の予約が更新されました";
       const bodyUpd = formatChangeEntries(entries);
       return { title: titleUpd, body: bodyUpd };
     case "deleted":
@@ -379,13 +394,14 @@ export default {
           // まず増分
           try {
             if (!prev) throw new Error("noPrev");
-            const { next, updated, deleted, nextSyncToken } = await applyIncremental(env, token, prev);
-            const entries = buildChangeEntries(updated, deleted);
+            const { next, created, updated, deleted, nextSyncToken } = await applyIncremental(env, token, prev);
+            const entries = buildChangeEntries(created, updated, deleted);
             const { title, body } = renderDiscordMessage(entries);
             await postDiscord(env, title, body);
             await env.OBS.put(SNAPSHOT_KEY(env.CALENDAR_ID), JSON.stringify(next));
             if (nextSyncToken) await env.OBS.put(SYNC_KEY(env.CALENDAR_ID), nextSyncToken);
             log("/hook", "incremental success", {
+              created: created.length,
               updated: updated.length,
               deleted: deleted.length,
               snapshotSize: Object.keys(next.events).length,
