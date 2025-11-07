@@ -168,7 +168,7 @@ async function applyIncremental(
           const id = it.id as string;
           const existed = nextEvents[id];
           if (existed) {
-            // まだ未来にかかるものだけ通知
+            // 削除された予約が未来のものなら通知対象にする
             if (isFutureByEnd(existed, nowIso)) deleted.push(existed);
             delete nextEvents[id];
           }
@@ -184,12 +184,14 @@ async function applyIncremental(
           if (existed) delete nextEvents[n.id];
           continue;
         }
-        // 追加も保持しつつ通知対象にする
+
         if (!existed) {
           nextEvents[n.id] = n;
-          created.push(n);
+          // 追加された予約を通知対象にする
+          // created.push(n);
         } else {
           if (shallowChanged(existed, n)) {
+            // 更新された予約を通知対象にする
             updated.push({ old: existed, now: n });
             nextEvents[n.id] = n;
           }
