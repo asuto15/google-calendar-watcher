@@ -31,11 +31,28 @@ Google カレンダーへの予定の追加・更新・削除を Google Calendar
 
 ### セットアップ手順
 
-1. Node.js (>=18) と [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/) をインストール。
-2. `.env.example` を `.env` にコピーし、後述の各環境変数を設定。
-3. `wrangler login` で Cloudflare にログインし、KV バインディング `OBS` を作成。
-4. `.env.example`にある各種環境変数を`wrangler secret put GOOGLE_CLIENT_ID`というふうに本番環境へ注入
-5. `wrangler deploy` でワーカーを起動。初回は `curl -X POST https://<worker>/subscribe` を叩いて watch を開始。
+1. **ツール準備**: Node.js 18 以上と [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/) をインストールし、`wrangler login` と `wrangler kv namespace create OBS`（まだなければ）でアカウント連携と KV を用意する。
+2. **依存関係インストール**: リポジトリ直下で `npm i` を実行し、`wrangler` や `tsx` などのローカル依存をまとめて入れる。
+3. **環境ファイル作成**: `cp .env.example .env` を実行し、後述のとおりに`.env` を記述する。
+4. **refresh_token 取得 (`npm run get-token`)**:
+   1. `.env` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を入れた状態で `npm run get-token` を実行。
+   2. ローカルでポート `8787` が開き、ブラウザが自動起動するので対象アカウントで Google の同意画面を完了させる。
+   3. ターミナルに表示された `refresh_token` を `.env` の `GOOGLE_REFRESH_TOKEN` に貼り付ける。
+5. **Worker へのシークレット反映 (`npm run put-envvar`)**: `.env` に全ての値が入ったら `npm run put-envvar` を実行すると、各キーが順番に `wrangler secret put <KEY>` され、本番 Worker にまとめて登録される。
+6. **デプロイ**: `wrangler deploy` を実行して Cloudflare Worker を公開する。`wrangler tail` でログ監視できる。
+7. **watch 初期化 (`npm run subscribe`)**: デプロイ後、`npm run subscribe` を実行すると `.env` の `PUBLIC_WORKER_BASE_URL` に対して `/subscribe` が叩かれ、Google Calendar の watch 開始とスナップショット構築が行われる。以後は Google からの Push で自動的に `/hook` が呼ばれ、Discord 通知まで動線が完成する。
+
+この 1〜7 を順番に実施すれば、README を書いた当時に比べて追加された npm スクリプトを使いながら、最初の watch 開始まで一気に到達できる。
+
+### npm scripts 一覧
+
+| スクリプト | 実行コマンド | 主な用途 | 実行前に必要なもの |
+| --- | --- | --- | --- |
+| `get-token` | `npm run get-token` | Google OAuth の `refresh_token` をローカルで取得。ループバックサーバ（ポート8787）を立て、ブラウザで同意してトークンを表示する。 | `.env` に `GOOGLE_CLIENT_ID` と `GOOGLE_CLIENT_SECRET` |
+| `put-envvar` | `npm run put-envvar` | `.env` 内のキーを Cloudflare Worker のシークレットへ一括 `wrangler secret put`。 | `.env` に必要な値がすべて揃っていること、`wrangler login` 済み |
+| `subscribe` | `npm run subscribe` | デプロイ済み Worker の `/subscribe` を叩いて watch を開始し、KV にスナップショット/SyncToken を保存。 | `.env` の `PUBLIC_WORKER_BASE_URL` と Cloudflare 側のシークレット群 |
+
+> これらのスクリプトは全て `package.json` の `scripts` に登録されており、`npm run <name>` で実行できる。`node_modules/.bin` にインストールされた `wrangler` や `tsx` を前提にしているため、必ず `npm ci` 実行後に使用すること。
 
 ### `.env.example` の項目
 
@@ -46,7 +63,7 @@ Google カレンダーへの予定の追加・更新・削除を Google Calendar
 | `GOOGLE_REFRESH_TOKEN` | 対象アカウントで Google Calendar API にアクセスするためのリフレッシュトークン | `npm run get-token` で実行される `scripts/get-refresh-token.ts` を使ってデバイスコードフローを走らせ、ブラウザで承認後に得られるトークンを設定。|
 | `CALENDAR_ID` | 監視対象 Google カレンダーの ID | Google Calendar の「設定と共有 > カレンダーの統合 > カレンダー ID」からコピー。公開カレンダーの場合は `example@gmail.com` や `xxxx@group.calendar.google.com` 形式。|
 | `DISCORD_WEBHOOK_URL` | 通知を送る Discord チャンネルの Webhook URL | Discord のチャンネル設定 > 連携サービス > Webhook で新規作成し、URL を貼り付け。|
-| `PUBLIC_HOOK_URL` | Google から Push 通知が届く完全な HTTPS URL（`/hook` パス） | Cloudflare Worker をデプロイ後の公開 URL に `/hook` を付けたものを設定。例: `https://watching-obs.example.workers.dev/hook`。|
+| `PUBLIC_WORKER_BASE_URL` | Cloudflare Worker が公開されているベース URL（末尾にパスを付けない） | 例: `https://watching-obs.example.workers.dev`。コード側で `/hook` や `/subscribe` を連結して利用するため、スクリプトからも同じ値を参照できる。|
 
 > `.env` はローカル開発時のみ参照され、Cloudflare へデプロイする際は `wrangler secret put` でこれらの値をシークレットとして登録してください。
 

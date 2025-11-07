@@ -3,7 +3,7 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REFRESH_TOKEN: string;
   CALENDAR_ID: string;
-  PUBLIC_HOOK_URL: string;
+  PUBLIC_WORKER_BASE_URL: string;
   DISCORD_WEBHOOK_URL: string;
   OBS: KVNamespace; // KV
 }
@@ -55,13 +55,20 @@ async function gcalList(env: Env, accessToken: string, params: Record<string, st
   return res.json();
 }
 
+function buildWorkerUrl(env: Env, path: string) {
+  const base = env.PUBLIC_WORKER_BASE_URL;
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  return new URL(path, normalizedBase).toString();
+}
+
 async function gcalWatch(env: Env, accessToken: string, channelId: string) {
+  const hookUrl = buildWorkerUrl(env, "/hook");
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(env.CALENDAR_ID)}/events/watch`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ id: channelId, type: "web_hook", address: env.PUBLIC_HOOK_URL }),
+      body: JSON.stringify({ id: channelId, type: "web_hook", address: hookUrl }),
     }
   );
   if (!res.ok) throw new Error(`events.watch failed: ${res.status} ${await res.text()}`);

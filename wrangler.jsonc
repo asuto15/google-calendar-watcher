@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "google-calendar-watcher",
+  "name": "watching-obs",
   "main": "src/index.ts",
   "compatibility_date": "2025-06-18",
 

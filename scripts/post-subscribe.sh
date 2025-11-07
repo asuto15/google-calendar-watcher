@@ -1,3 +1,2 @@
 #!/bin/bash
-
-curl -X POST "https://****.****.workers.dev/subscribe"
+(set -a; source .env; curl -X POST "${PUBLIC_WORKER_BASE_URL}/subscribe")

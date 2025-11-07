@@ -11,6 +11,7 @@
   },
   "scripts": {
     "get-token": "bash scripts/get-token.sh",
-    "subscribe": "bash scripts/post-subscribe.sh"
+    "subscribe": "bash scripts/post-subscribe.sh",
+    "put-envvar": "bash scripts/put-envvar-to-prod.sh"
   }
 }
