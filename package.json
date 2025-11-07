@@ -10,6 +10,7 @@
   "dependencies": {
   },
   "scripts": {
-    "get-token": "tsx scripts/get-refresh-token.ts"
+    "get-token": "bash scripts/get-token.sh",
+    "subscribe": "bash scripts/post-subscribe.sh"
   }
 }
