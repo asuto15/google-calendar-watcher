@@ -267,6 +267,13 @@ function formatTime(iso: string) {
 function formatLine(entry: ChangeEntry) {
   const emoji = entry.kind === "created" ? "🆕" : entry.kind === "updated" ? "🔔" : "🗑️";
   const label = entry.kind === "created" ? "追加" : entry.kind === "updated" ? "更新" : "削除";
+  if (entry.kind === "updated" && entry.previous) {
+    const beforeStart = formatDatetime(entry.previous.start);
+    const beforeEnd = formatTime(entry.previous.end);
+    const afterStart = formatDatetime(entry.current.start);
+    const afterEnd = formatTime(entry.current.end);
+    return `- ${entry.current.summary} ${emoji} (${label})\n  - 変更前: ${beforeStart} ~ ${beforeEnd}\n  - 変更後: ${afterStart} ~ ${afterEnd}`;
+  }
   return `- ${entry.current.summary} ${emoji} (${label})\n  - ${formatDatetime(entry.current.start)} ~ ${formatTime(entry.current.end)}`;
 }
 
