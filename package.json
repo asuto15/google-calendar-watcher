@@ -1,5 +1,5 @@
 {
-  "name": "watching-obs",
+  "name": "google-calendar-watcher",
   "private": true,
   "type": "module",
   "devDependencies": {
