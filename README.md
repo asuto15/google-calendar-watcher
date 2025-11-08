@@ -31,7 +31,7 @@ Google カレンダーへの予定の追加・更新・削除を Google Calendar
 
 ### セットアップ手順
 
-1. **ツール準備**: Node.js 18 以上と [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/) をインストールし、`wrangler login` と `wrangler kv namespace create OBS`（まだなければ）でアカウント連携と KV を用意する。
+1. **ツール準備**: Node.js 18 以上と [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/) をインストールし、`wrangler login` と `wrangler kv namespace create OBS`（KVの名前はなんでもよいので環境に合わせて適切に命名する）でアカウント連携と KV を用意する。このとき `wrangler kv namespace list` 等で得られる自分の KV Namespace ID を `wrangler.jsonc` の `kv_namespaces` セクション（`id` / `preview_id`）へ反映し、環境ごとに正しい ID へ書き換えておく。
 2. **依存関係インストール**: リポジトリ直下で `npm i` を実行し、`wrangler` や `tsx` などのローカル依存をまとめて入れる。
 3. **環境ファイル作成**: `cp .env.example .env` を実行し、後述のとおりに`.env` を記述する。
 4. **refresh_token 取得 (`npm run get-token`)**:

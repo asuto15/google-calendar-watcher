@@ -16,7 +16,7 @@
   },
 
   "kv_namespaces": [
-    // コード側に合わせて binding を OBS に統一
+    // KVのバインディング名とIDを環境に合わせて書き換える
     { "binding": "OBS", "id": "9ef5ee04ad9247fc94265a4178210588" }
   ],
 
